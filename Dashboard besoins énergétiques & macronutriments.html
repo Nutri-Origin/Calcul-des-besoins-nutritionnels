@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Estimer mon impôt sur le revenu</title>
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--ink:#16211c;--mute:#5d6b64;--line:#dbe3de;--acc:#1f6f55;--acc2:#c8e6d9;--warn:#a5481f;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1713;--card:#17221c;--ink:#e8f0eb;--mute:#93a69b;--line:#26352d;--acc:#5cc6a0;--acc2:#1d3a2e;--warn:#e59a73}}
+:root[data-theme="dark"]{--bg:#0f1713;--card:#17221c;--ink:#e8f0eb;--mute:#93a69b;--line:#26352d;--acc:#5cc6a0;--acc2:#1d3a2e;--warn:#e59a73}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Source Serif 4",Georgia,serif}
+main{max-width:720px;margin:0 auto;padding:20px 16px 40px}
+h1{font:700 1.5rem/1.2 "Trebuchet MS",system-ui,sans-serif;margin:8px 0 4px}
+.sub{color:var(--mute);margin:0 0 20px;font-size:.95rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+label{display:block;font:600 .85rem system-ui,sans-serif;margin:0 0 4px}
+.f{margin-bottom:14px}
+input,select{width:100%;font:1rem system-ui,sans-serif;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--acc);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hero{border-color:var(--acc)}
+.big{font:700 2.6rem/1 "Trebuchet MS",system-ui,sans-serif;color:var(--acc);margin:6px 0}
+.mute{color:var(--mute);font-size:.9rem}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.k{border-top:2px solid var(--acc2);padding-top:8px}
+.k b{display:block;font:700 1.1rem system-ui,sans-serif}
+.k span{font-size:.8rem;color:var(--mute)}
+.bar{height:14px;background:var(--acc2);border-radius:7px;overflow:hidden;margin:6px 0 2px}
+.bar i{display:block;height:100%;background:var(--acc)}
+.tr{margin-bottom:12px;font:.9rem system-ui,sans-serif}
+.tr div{display:flex;justify-content:space-between;gap:8px}
+.split{display:flex;height:22px;border-radius:6px;overflow:hidden;margin:10px 0 6px}
+.split i{display:block}
+.note{font-size:.8rem;color:var(--mute)}
+.w{color:var(--warn);font-size:.85rem;margin:8px 0 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Estimer mon impôt sur le revenu</h1>
+<p class="sub">Barème appliqué aux revenus 2025 (déclaration 2026). Estimation indicative.</p>
+
+<section class="card">
+  <div class="f"><label for="rev">Revenu annuel (€)</label>
+    <input id="rev" type="number" inputmode="decimal" min="0" step="100" value="32000"></div>
+  <div class="f"><label for="type">Ce montant correspond à</label>
+    <select id="type">
+      <option value="brut">Salaires nets imposables (abattement de 10 % appliqué)</option>
+      <option value="net">Revenu net imposable (déjà après abattement)</option>
+    </select></div>
+  <div class="row">
+    <div class="f"><label for="sit">Situation</label>
+      <select id="sit"><option value="1">Célibataire / divorcé / veuf</option><option value="2">Marié ou pacsé</option></select></div>
+    <div class="f"><label for="enf">Enfants à charge</label>
+      <input id="enf" type="number" inputmode="numeric" min="0" max="10" value="0"></div>
+  </div>
+</section>
+
+<section class="card hero" aria-live="polite">
+  <div class="mute">Impôt estimé sur l'année</div>
+  <div class="big" id="imp">0 €</div>
+  <div class="mute" id="mens"></div>
+  <div class="kpis">
+    <div class="k"><b id="tmi">0 %</b><span>Tranche marginale</span></div>
+    <div class="k"><b id="tm">0 %</b><span>Taux moyen</span></div>
+    <div class="k"><b id="parts">1</b><span>Parts fiscales</span></div>
+  </div>
+  <div class="split" id="split" role="img" aria-label="Répartition revenu net et impôt"></div>
+  <div class="mute" id="splitlbl"></div>
+  <p class="w" id="warn" hidden></p>
+</section>
+
+<section class="card">
+  <label style="margin-bottom:12px">Détail par tranche (pour une part)</label>
+  <div id="tranches"></div>
+  <p class="note">Plafonnement du quotient familial : 1 807 € par demi-part. Décote : seuils 1 982 € (seul) et 3 277 € (couple). Ne tient pas compte des réductions et crédits d'impôt, des revenus du capital ni des frais réels. Pour un montant exact, utilisez le simulateur officiel sur impots.gouv.fr.</p>
+</section>
+</main>
+
+<script>
+const B=[[11600,0],[29579,.11],[84577,.30],[181917,.41],[Infinity,.45]];
+const $=id=>document.getElementById(id);
+const eur=n=>Math.round(n).toLocaleString("fr-FR")+" €";
+function bareme(q){let t=0,prev=0,rows=[];
+  for(const[l,r]of B){const a=q>prev?Math.min(q,l)-prev:0;rows.push({from:prev,to:l,r,a,t:a*r});t+=a*r;prev=l}
+  return{t,rows}}
+function calc(){
+  const rev=Math.max(0,+$("rev").value||0), couple=$("sit").value==="2", enf=Math.max(0,Math.floor(+$("enf").value||0));
+  let net=rev;
+  if($("type").value==="brut"){net=rev-Math.min(14556,Math.max(509,rev*.1)); if(rev<509)net=0}
+  const p0=couple?2:1, p=p0+Math.min(enf,2)*.5+Math.max(0,enf-2);
+  const a=bareme(net/p), imp1=a.t*p, imp0=bareme(net/p0).t*p0;
+  const cap=(p-p0)*2*1807;
+  let imp=imp1, plaf=false;
+  if(imp0-imp1>cap){imp=imp0-cap;plaf=true}
+  const seuil=couple?3277:1982, base=couple?1483:897;
+  let dec=0;
+  if(imp<seuil){dec=Math.min(imp,Math.max(0,base-.4525*imp));imp-=dec}
+  imp=Math.max(0,imp);
+  let tmi=0; for(const r of a.rows) if(r.a>0) tmi=r.r;
+  $("imp").textContent=eur(imp);
+  $("mens").textContent="≈ "+eur(imp/12)+" par mois (prélèvement à la source)";
+  $("tmi").textContent=Math.round(tmi*100)+" %";
+  $("tm").textContent=(net>0?(imp/net*100):0).toFixed(1).replace(".",",")+" %";
+  $("parts").textContent=String(p).replace(".",",");
+  const pct=net>0?Math.min(100,imp/net*100):0;
+  $("split").innerHTML='<i style="width:'+(100-pct)+'%;background:var(--acc2)"></i><i style="width:'+pct+'%;background:var(--acc)"></i>';
+  $("splitlbl").textContent="Revenu net imposable : "+eur(net)+" · après impôt : "+eur(net-imp);
+  const w=$("warn"), msgs=[];
+  if(plaf)msgs.push("Le plafonnement du quotient familial s'applique.");
+  if(dec>0)msgs.push("Une décote de "+eur(dec)+" a été déduite.");
+  w.hidden=!msgs.length; w.textContent=msgs.join(" ");
+  $("tranches").innerHTML=a.rows.map(r=>{
+    const lim=isFinite(r.to)?"à "+eur(r.to):"et plus";
+    const w=isFinite(r.to)?(r.a/(r.to-r.from))*100:Math.min(100,r.a/50000*100);
+    return '<div class="tr"><div><span>'+Math.round(r.r*100)+' % · '+eur(r.from)+' '+lim+'</span><b>'+eur(r.t*p)+'</b></div><div class="bar"><i style="width:'+Math.min(100,w)+'%"></i></div></div>'}).join("");
+}
+["rev","type","sit","enf"].forEach(i=>$(i).addEventListener("input",calc));
+calc();
+</script>
+</body>
+</html>
